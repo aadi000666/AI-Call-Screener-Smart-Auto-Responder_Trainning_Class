@@ -96,9 +96,13 @@ def get_call_state():
 
 
 def get_caller_from_call_log():
+    # Android content query on call_log
     out = run_adb(["shell", "content", "query", "--uri", "content://call_log/calls",
-                   "--projection", "number", "--sort", "date DESC", "--limit", "1"], timeout=3)
-    match = re.search(r"number=([+\d]+)", out)
+                   "--projection", "number", "--sort", r"date\ DESC"], timeout=4)
+    # Match the latest entry's number
+    match = re.search(r"Row:\s*0\s+number=([+\d]+)", out)
+    if not match:
+        match = re.search(r"number=([+\d]+)", out)
     if match:
         num = match.group(1).strip()
         clean = re.sub(r"[^\d+]", "", num)
@@ -260,7 +264,9 @@ def main():
     except ValueError:
         wait_seconds = 5.0
 
-    fallback_num = input("Fallback phone number if caller ID is private [optional]: ").strip()
+    fallback_num = input("Fallback phone number if caller ID is private [default: +916307028119]: ").strip()
+    if not fallback_num:
+        fallback_num = "+916307028119"
 
     print("\n[SECTION 3: DEVICE CONNECTION]")
     print(f"ADB Binary: {ADB_BIN}")
