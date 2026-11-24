@@ -1,0 +1,81 @@
+# ============================================================
+# AI Call Screener & Smart Auto-Responder Configuration
+# ============================================================
+
+app:
+  title: "AI Call Screener & Smart Auto-Responder"
+  version: "1.0.0"
+  host: "0.0.0.0"
+  port: 8000
+  debug: true
+  user_name: "Aditya"
+  # Operational mode: smart_reject | voice_screen | vip_bypass
+  active_mode: "smart_reject"
+
+adb:
+  enabled: true
+  # Set specific path or leave 'adb' to find from PATH / Android SDK
+  adb_path: "C:/platform-tools/adb.exe"
+  # Device serial (empty for auto-select first connected device)
+  device_serial: ""
+  # Connect wirelessly on startup if true
+  connect_wireless: false
+  device_ip: "192.168.1.100"
+  device_port: 5555
+  # Polling interval for call detection in seconds
+  poll_interval: 0.5
+  # When true, allows testing full pipeline with virtual call simulator
+  simulation_mode: false
+
+llm:
+  # Primary provider: 'ollama' or 'gemini'
+  provider: "gemini"
+  # Local Ollama settings (private, offline-capable)
+  ollama:
+    base_url: "http://localhost:11434"
+    model: "llama3.2" # or "qwen2.5:3b"
+    timeout: 15
+  # Google Gemini settings
+  gemini:
+    api_key: "" # Loaded automatically from .env (GEMINI_API_KEY)
+    model: "gemini-2.5-flash"
+    timeout: 15
+  # Always fallback to rule-based contextual templates if LLM is offline
+  fallback_to_template: true
+
+voice:
+  # Edge-TTS Neural Voice:
+  # en-IN-NeerjaNeural (Indian English, Female)
+  # en-IN-PrabhatNeural (Indian English, Male)
+  # hi-IN-SwaraNeural (Hindi, Female)
+  # en-US-JennyNeural (US English, Female)
+  tts_voice: "en-IN-NeerjaNeural"
+  tts_rate: "+0%"
+  tts_pitch: "+0Hz"
+  # STT engine: google (SpeechRecognition) or simulated
+  stt_engine: "google"
+  language: "en-IN"
+  max_turns: 3
+  # Virtual audio routing / speaker output path
+  output_audio_dir: "data/audio_logs"
+
+database:
+  # Storage engine: 'mongodb' (with automatic SQLite/mongomock fallback)
+  type: "mongodb"
+  mongodb_uri: "mongodb://localhost:27017"
+  database_name: "ai_call_screener"
+  fallback_json_path: "data/screener_db.json"
+
+context_defaults:
+  current_status: "AVAILABLE" # AVAILABLE | BUSY | IN_CLASS | CODING_FOCUS | SLEEPING | DND | CUSTOM
+  custom_note: ""
+  until_time: ""
+
+default_templates:
+  available: "Hello {caller}, Aditya is available but stepped away briefly. Please leave a message."
+  busy: "Hi {caller}, Aditya is currently busy and unable to answer. He will get back to you shortly."
+  in_class: "Hi {caller}, Aditya is currently attending a lecture/class until {until_time}. For urgent matters, please reply 'URGENT'."
+  coding_focus: "Hi {caller}, Aditya is in a deep coding sprint. I've noted your call and he will check messages at the top of the hour."
+  sleeping: "Hi {caller}, Aditya is currently resting (DND). If this is an emergency, reply 'EMERGENCY' to bypass."
+  dnd: "Hi {caller}, Aditya has Do Not Disturb enabled right now. Your call has been logged."
+  spam: "Notice: This automated system has blocked your number. Unsolicited marketing calls are prohibited."

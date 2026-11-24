@@ -1,0 +1,1132 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Call Screener & Smart Auto-Responder</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace']
+          },
+          colors: {
+            brand: {
+              50: '#f0f9ff',
+              100: '#e0f2fe',
+              400: '#38bdf8',
+              500: '#0ea5e9',
+              600: '#0284c7',
+              700: '#0369a1',
+              900: '#0c4a6e',
+              950: '#082f49'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* Custom scrollbars & glowing animations */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #0f172a; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+    @keyframes pulse-ring {
+      0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(14, 165, 233, 0.7); }
+      70% { transform: scale(1); box-shadow: 0 0 0 12px rgba(14, 165, 233, 0); }
+      100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(14, 165, 233, 0); }
+    }
+    .ringing-pulse { animation: pulse-ring 1.8s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+
+    .glass-card {
+      background: rgba(15, 23, 42, 0.75);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(51, 65, 85, 0.6);
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen font-sans flex flex-col selection:bg-brand-500 selection:text-white">
+
+  <!-- TOP HEADER -->
+  <header class="border-b border-slate-800 bg-slate-900/90 backdrop-blur sticky top-0 z-40">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      
+      <!-- Logo & Title -->
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-600 to-indigo-600 flex items-center justify-center shadow-lg shadow-brand-500/20">
+          <i data-lucide="phone-call" class="w-5 h-5 text-white"></i>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="font-bold text-lg tracking-tight text-white">AI Call Screener</h1>
+            <span class="text-[10px] font-mono uppercase px-2 py-0.5 rounded-full bg-brand-500/10 text-brand-400 border border-brand-500/30">v1.0 Pro</span>
+          </div>
+          <p class="text-xs text-slate-400 hidden sm:block">Android ADB Automation & Autonomous AI Voice Responder</p>
+        </div>
+      </div>
+
+      <!-- Center: Operational Mode Switcher -->
+      <div class="hidden md:flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800">
+        <button onclick="setMode('smart_reject')" id="btn-mode-smart_reject" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all text-slate-400 hover:text-white">
+          <i data-lucide="zap" class="w-3.5 h-3.5 text-amber-400"></i> Smart Reject & SMS
+        </button>
+        <button onclick="setMode('voice_screen')" id="btn-mode-voice_screen" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all text-slate-400 hover:text-white">
+          <i data-lucide="mic" class="w-3.5 h-3.5 text-violet-400"></i> AI Voice Screening
+        </button>
+        <button onclick="setMode('vip_bypass')" id="btn-mode-vip_bypass" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all text-slate-400 hover:text-white">
+          <i data-lucide="shield-check" class="w-3.5 h-3.5 text-emerald-400"></i> VIP Bypass Only
+        </button>
+      </div>
+
+      <!-- Right: Connection Status & Quick Simulation Button -->
+      <div class="flex items-center gap-3">
+        <!-- ADB Status Pill -->
+        <div id="adb-status-pill" class="flex items-center gap-2 px-3 py-1 rounded-full text-xs font-mono bg-slate-800/80 border border-slate-700 text-slate-300">
+          <span id="adb-indicator" class="w-2 h-2 rounded-full bg-slate-500"></span>
+          <span id="adb-text">Checking ADB...</span>
+        </div>
+
+        <!-- Simulation Modal Trigger -->
+        <button onclick="openSimulationModal()" class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-500 hover:to-indigo-500 text-white text-xs font-semibold shadow-md shadow-brand-500/25 transition-all">
+          <i data-lucide="play" class="w-3.5 h-3.5"></i> Test Call
+        </button>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- LIVE CALL BANNER (Appears dynamically when a call is incoming / screening) -->
+  <div id="live-call-container" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-4 hidden">
+    <div class="rounded-2xl bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 border-2 border-brand-500/50 p-5 shadow-2xl relative overflow-hidden ringing-pulse">
+      
+      <!-- Top info -->
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div class="flex items-center gap-4">
+          <div class="w-14 h-14 rounded-2xl bg-brand-500/20 border border-brand-400/30 flex items-center justify-center text-brand-400">
+            <i data-lucide="phone-incoming" class="w-7 h-7 animate-bounce"></i>
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <span id="live-call-category" class="px-2 py-0.5 rounded text-[11px] font-mono uppercase bg-slate-800 text-slate-300 border border-slate-700">Category</span>
+              <span id="live-call-action-badge" class="px-2 py-0.5 rounded text-[11px] font-mono uppercase bg-brand-500/20 text-brand-300 border border-brand-500/30">Action</span>
+            </div>
+            <h3 id="live-call-name" class="text-xl font-bold text-white mt-1">Unknown Caller</h3>
+            <p id="live-call-number" class="text-xs font-mono text-slate-400">+91 00000 00000</p>
+          </div>
+        </div>
+
+        <!-- Status / Action controls -->
+        <div class="flex items-center gap-3">
+          <div class="text-right mr-2 hidden sm:block">
+            <p class="text-xs text-slate-400">Your Current Status</p>
+            <p id="live-call-user-status" class="text-xs font-semibold text-brand-400">In Class (Operating Systems)</p>
+          </div>
+          <button onclick="terminateActiveCall()" class="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold flex items-center gap-2 transition-all">
+            <i data-lucide="phone-off" class="w-4 h-4"></i> Hang Up
+          </button>
+        </div>
+      </div>
+
+      <!-- Live Voice Screening Dialogue (Visible if in voice_screen mode) -->
+      <div id="live-screening-box" class="mt-4 pt-4 border-t border-slate-700/60 hidden">
+        <div class="flex items-center justify-between mb-2">
+          <div class="flex items-center gap-2 text-xs font-mono text-violet-400">
+            <span class="w-2 h-2 rounded-full bg-violet-400 animate-pulse"></span>
+            LIVE AI VOICE SCREENING TRANSCRIPT
+          </div>
+          <span class="text-[11px] text-slate-400 font-mono">edge-tts Neural Synthesis Active</span>
+        </div>
+
+        <div id="live-transcript-stream" class="space-y-2 max-h-48 overflow-y-auto p-3 rounded-xl bg-slate-950/80 border border-slate-800 font-mono text-xs">
+          <!-- Dialogue turns appended here -->
+        </div>
+
+        <!-- Interactive Caller Dialogue Simulation Box -->
+        <div class="mt-3 flex items-center gap-2">
+          <input type="text" id="simulated-speech-input" placeholder="Type caller's simulated spoken reply (e.g. 'I have a package from Amazon for Aditya')..." class="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
+          <button onclick="sendSimulatedSpeech()" class="px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-xs font-semibold flex items-center gap-1.5 transition-all">
+            <i data-lucide="send" class="w-3.5 h-3.5"></i> Speak to AI
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- MAIN WRAPPER -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 w-full space-y-6">
+
+    <!-- USER CONTEXT SWITCHER CARD -->
+    <div class="glass-card rounded-2xl p-5 shadow-xl">
+      <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-slate-800">
+        <div>
+          <h2 class="text-sm font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+            <i data-lucide="clock" class="w-4 h-4 text-brand-400"></i> Live User Context & Availability
+          </h2>
+          <p class="text-xs text-slate-400 mt-0.5">Calls will be classified & responded to automatically based on this status.</p>
+        </div>
+
+        <!-- Active Context Indicator Badge -->
+        <div class="flex items-center gap-2 bg-slate-900 px-3.5 py-1.5 rounded-xl border border-slate-800">
+          <span class="w-2.5 h-2.5 rounded-full bg-emerald-400" id="ctx-status-dot"></span>
+          <span class="text-xs font-bold text-white" id="ctx-status-title">AVAILABLE</span>
+          <span class="text-xs text-slate-400" id="ctx-status-note"></span>
+          <button id="btn-resume-timetable" onclick="clearManualContext()" class="ml-2 text-[11px] font-mono text-brand-400 hover:text-brand-300 underline hidden">
+            Resume Timetable
+          </button>
+        </div>
+      </div>
+
+      <!-- Quick Status Buttons -->
+      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 mt-4">
+        
+        <!-- Available -->
+        <button onclick="setStatus('AVAILABLE')" id="status-btn-AVAILABLE" class="flex flex-col items-center justify-center p-3 rounded-xl border border-slate-800 hover:border-emerald-500/50 bg-slate-900/60 hover:bg-slate-900 transition-all text-center group">
+          <span class="text-xl mb-1">🟢</span>
+          <span class="text-xs font-bold text-slate-200 group-hover:text-emerald-400">Available</span>
+          <span class="text-[10px] text-slate-400 mt-0.5">Direct Ring</span>
+        </button>
+
+        <!-- In Class -->
+        <button onclick="promptStatusModal('IN_CLASS')" id="status-btn-IN_CLASS" class="flex flex-col items-center justify-center p-3 rounded-xl border border-slate-800 hover:border-amber-500/50 bg-slate-900/60 hover:bg-slate-900 transition-all text-center group">
+          <span class="text-xl mb-1">🎓</span>
+          <span class="text-xs font-bold text-slate-200 group-hover:text-amber-400">In Class</span>
+          <span class="text-[10px] text-slate-400 mt-0.5">Lecture / Study</span>
+        </button>
+
+        <!-- Coding Focus -->
+        <button onclick="promptStatusModal('CODING_FOCUS')" id="status-btn-CODING_FOCUS" class="flex flex-col items-center justify-center p-3 rounded-xl border border-slate-800 hover:border-brand-500/50 bg-slate-900/60 hover:bg-slate-900 transition-all text-center group">
+          <span class="text-xl mb-1">💻</span>
+          <span class="text-xs font-bold text-slate-200 group-hover:text-brand-400">Coding Focus</span>
+          <span class="text-[10px] text-slate-400 mt-0.5">Deep Sprint</span>
+        </button>
+
+        <!-- Sleeping -->
+        <button onclick="setStatus('SLEEPING', 'Resting / Sleep', '07:30')" id="status-btn-SLEEPING" class="flex flex-col items-center justify-center p-3 rounded-xl border border-slate-800 hover:border-indigo-500/50 bg-slate-900/60 hover:bg-slate-900 transition-all text-center group">
+          <span class="text-xl mb-1">🌙</span>
+          <span class="text-xs font-bold text-slate-200 group-hover:text-indigo-400">Sleeping</span>
+          <span class="text-[10px] text-slate-400 mt-0.5">Emergency Only</span>
+        </button>
+
+        <!-- DND -->
+        <button onclick="setStatus('DND', 'Do Not Disturb')" id="status-btn-DND" class="flex flex-col items-center justify-center p-3 rounded-xl border border-slate-800 hover:border-rose-500/50 bg-slate-900/60 hover:bg-slate-900 transition-all text-center group">
+          <span class="text-xl mb-1">⛔</span>
+          <span class="text-xs font-bold text-slate-200 group-hover:text-rose-400">DND</span>
+          <span class="text-[10px] text-slate-400 mt-0.5">Strict Block</span>
+        </button>
+
+        <!-- Custom -->
+        <button onclick="promptStatusModal('CUSTOM')" id="status-btn-CUSTOM" class="flex flex-col items-center justify-center p-3 rounded-xl border border-slate-800 hover:border-violet-500/50 bg-slate-900/60 hover:bg-slate-900 transition-all text-center group">
+          <span class="text-xl mb-1">⚙️</span>
+          <span class="text-xs font-bold text-slate-200 group-hover:text-violet-400">Custom</span>
+          <span class="text-[10px] text-slate-400 mt-0.5">Specific Note</span>
+        </button>
+
+      </div>
+    </div>
+
+    <!-- TABS BAR -->
+    <div class="flex items-center gap-2 border-b border-slate-800 pb-2 overflow-x-auto">
+      <button onclick="switchTab('logs')" id="tab-btn-logs" class="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold text-brand-400 bg-slate-900 border border-slate-700/60 shadow-sm transition-all">
+        <i data-lucide="history" class="w-4 h-4"></i> Call History & Summaries
+      </button>
+      <button onclick="switchTab('vip')" id="tab-btn-vip" class="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-900 transition-all">
+        <i data-lucide="users" class="w-4 h-4"></i> VIP Contacts & Custom Rules
+      </button>
+      <button onclick="switchTab('schedules')" id="tab-btn-schedules" class="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-900 transition-all">
+        <i data-lucide="calendar" class="w-4 h-4"></i> Timetable & Auto-Schedule
+      </button>
+      <button onclick="switchTab('settings')" id="tab-btn-settings" class="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-900 transition-all">
+        <i data-lucide="settings" class="w-4 h-4"></i> Device & Voice Settings
+      </button>
+    </div>
+
+    <!-- TAB 1: CALL LOGS -->
+    <div id="tab-content-logs" class="space-y-4">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div class="flex items-center gap-2">
+          <span class="text-xs text-slate-400 font-mono">Filter by Urgency:</span>
+          <select id="urgency-filter" onchange="fetchCallLogs()" class="bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1 text-xs text-slate-200 focus:outline-none focus:border-brand-500">
+            <option value="">All Ratings</option>
+            <option value="CRITICAL">Critical (9-10)</option>
+            <option value="HIGH">High (7-8)</option>
+            <option value="MEDIUM">Medium (4-6)</option>
+            <option value="LOW">Low (1-3)</option>
+          </select>
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="fetchCallLogs()" class="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 hover:border-slate-700 text-xs text-slate-300 flex items-center gap-1.5 transition-all">
+            <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Refresh
+          </button>
+          <button onclick="clearAllLogs()" class="px-3 py-1.5 rounded-lg bg-rose-950/40 border border-rose-900/60 hover:bg-rose-900/40 text-xs text-rose-300 flex items-center gap-1.5 transition-all">
+            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Clear All
+          </button>
+        </div>
+      </div>
+
+      <!-- Call Logs List -->
+      <div id="call-logs-container" class="space-y-3">
+        <!-- Rendered via JS -->
+      </div>
+    </div>
+
+    <!-- TAB 2: VIP CONTACTS -->
+    <div id="tab-content-vip" class="space-y-4 hidden">
+      <div class="flex items-center justify-between">
+        <div>
+          <h3 class="text-sm font-semibold text-white">VIP Contacts & Priority Rules</h3>
+          <p class="text-xs text-slate-400">Contacts configured to bypass DND, receive custom auto-replies, or trigger immediate alerts.</p>
+        </div>
+        <button onclick="openContactModal()" class="px-3.5 py-1.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold flex items-center gap-1.5 transition-all shadow-md">
+          <i data-lucide="user-plus" class="w-3.5 h-3.5"></i> Add Contact
+        </button>
+      </div>
+
+      <div id="contacts-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+        <!-- Rendered via JS -->
+      </div>
+    </div>
+
+    <!-- TAB 3: TIMETABLES -->
+    <div id="tab-content-schedules" class="space-y-4 hidden">
+      <div class="flex items-center justify-between">
+        <div>
+          <h3 class="text-sm font-semibold text-white">Automated Schedule & Timetable</h3>
+          <p class="text-xs text-slate-400">Context is automatically switched based on your daily academic and coding timetable.</p>
+        </div>
+        <button onclick="openScheduleModal()" class="px-3.5 py-1.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold flex items-center gap-1.5 transition-all shadow-md">
+          <i data-lucide="plus" class="w-3.5 h-3.5"></i> Add Timetable Rule
+        </button>
+      </div>
+
+      <div id="schedules-container" class="space-y-3">
+        <!-- Rendered via JS -->
+      </div>
+    </div>
+
+    <!-- TAB 4: SETTINGS -->
+    <div id="tab-content-settings" class="space-y-6 hidden">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        
+        <!-- ADB Device Configuration -->
+        <div class="glass-card rounded-2xl p-5 shadow-xl space-y-4">
+          <h3 class="text-sm font-semibold text-white flex items-center gap-2">
+            <i data-lucide="smartphone" class="w-4 h-4 text-brand-400"></i> Android Device & Wireless ADB
+          </h3>
+          <p class="text-xs text-slate-400">Pair your Android phone wirelessly over local Wi-Fi or USB Debugging.</p>
+
+          <div class="space-y-3">
+            <div>
+              <label class="block text-xs font-mono text-slate-300 mb-1">Device IP Address</label>
+              <input type="text" id="setting-adb-ip" value="192.168.1.100" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-mono focus:border-brand-500">
+            </div>
+            <div>
+              <label class="block text-xs font-mono text-slate-300 mb-1">Wireless Port</label>
+              <input type="number" id="setting-adb-port" value="5555" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-mono focus:border-brand-500">
+            </div>
+            <button onclick="connectWirelessADB()" class="w-full py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold flex items-center justify-center gap-2 transition-all">
+              <i data-lucide="wifi" class="w-3.5 h-3.5"></i> Connect Wireless ADB
+            </button>
+          </div>
+
+          <!-- Simulation mode toggle switch -->
+          <div class="pt-4 border-t border-slate-800 flex items-center justify-between">
+            <div>
+              <p class="text-xs font-semibold text-slate-200">Virtual Simulator Mode</p>
+              <p class="text-[11px] text-slate-400">Test all screener features without plugging in a phone.</p>
+            </div>
+            <input type="checkbox" id="setting-sim-toggle" onchange="toggleSimulationMode(this.checked)" class="w-4 h-4 rounded text-brand-500 focus:ring-brand-500 bg-slate-900 border-slate-700">
+          </div>
+        </div>
+
+        <!-- Voice & Neural TTS Settings -->
+        <div class="glass-card rounded-2xl p-5 shadow-xl space-y-4">
+          <h3 class="text-sm font-semibold text-white flex items-center gap-2">
+            <i data-lucide="volume-2" class="w-4 h-4 text-violet-400"></i> Edge-TTS Neural Voice Engine
+          </h3>
+          <p class="text-xs text-slate-400">Select natural, expressive voices for AI Voice Screening responses.</p>
+
+          <div class="space-y-3">
+            <div>
+              <label class="block text-xs font-mono text-slate-300 mb-1">Neural Voice Model</label>
+              <select id="setting-tts-voice" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:border-brand-500">
+                <option value="en-IN-NeerjaNeural">en-IN-NeerjaNeural (Indian English - Female)</option>
+                <option value="en-IN-PrabhatNeural">en-IN-PrabhatNeural (Indian English - Male)</option>
+                <option value="hi-IN-SwaraNeural">hi-IN-SwaraNeural (Hindi - Female)</option>
+                <option value="hi-IN-MadhurNeural">hi-IN-MadhurNeural (Hindi - Male)</option>
+                <option value="en-US-JennyNeural">en-US-JennyNeural (US English - Female)</option>
+                <option value="en-US-GuyNeural">en-US-GuyNeural (US English - Male)</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-mono text-slate-300 mb-1">Test Phrase</label>
+              <input type="text" id="setting-tts-test-phrase" value="Hello, this is Aditya's AI Call Screener testing natural voice synthesis." class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:border-brand-500">
+            </div>
+            <div class="flex items-center gap-2">
+              <button onclick="previewVoiceTTS()" class="flex-1 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-xs font-semibold flex items-center justify-center gap-2 transition-all">
+                <i data-lucide="play" class="w-3.5 h-3.5"></i> Play Voice Preview
+              </button>
+            </div>
+            <audio id="tts-preview-player" class="w-full mt-2 hidden" controls></audio>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </main>
+
+  <!-- MODAL: CONTEXT EDIT / CUSTOM NOTE -->
+  <div id="modal-context" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-5 space-y-4 shadow-2xl">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+        <h3 class="text-sm font-bold text-white flex items-center gap-2" id="modal-context-title">
+          <i data-lucide="edit-3" class="w-4 h-4 text-brand-400"></i> Set Context Note
+        </h3>
+        <button onclick="closeModal('modal-context')" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-4 h-4"></i></button>
+      </div>
+      <input type="hidden" id="modal-context-status-key">
+      <div>
+        <label class="block text-xs font-mono text-slate-300 mb-1">Activity / Lecture / Meeting Name</label>
+        <input type="text" id="modal-context-note" placeholder="e.g. Operating Systems Lecture" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:border-brand-500">
+      </div>
+      <div>
+        <label class="block text-xs font-mono text-slate-300 mb-1">Busy Until (Time)</label>
+        <input type="text" id="modal-context-until" placeholder="e.g. 16:30" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-mono focus:border-brand-500">
+      </div>
+      <div class="flex items-center justify-end gap-2 pt-2">
+        <button onclick="closeModal('modal-context')" class="px-4 py-2 rounded-xl text-xs text-slate-300 hover:bg-slate-800">Cancel</button>
+        <button onclick="applyContextModal()" class="px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold">Apply Status</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: ADD / EDIT VIP CONTACT -->
+  <div id="modal-contact" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-5 space-y-4 shadow-2xl">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+        <h3 class="text-sm font-bold text-white flex items-center gap-2">
+          <i data-lucide="user-plus" class="w-4 h-4 text-brand-400"></i> VIP Contact & Rules
+        </h3>
+        <button onclick="closeModal('modal-contact')" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-4 h-4"></i></button>
+      </div>
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs font-mono text-slate-300 mb-1">Full Name</label>
+          <input type="text" id="contact-name" placeholder="e.g. Dr. R. Sharma" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:border-brand-500">
+        </div>
+        <div>
+          <label class="block text-xs font-mono text-slate-300 mb-1">Phone Number (with country code)</label>
+          <input type="text" id="contact-phone" placeholder="e.g. +919876543210" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-mono focus:border-brand-500">
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-mono text-slate-300 mb-1">Category</label>
+            <select id="contact-category" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:border-brand-500">
+              <option value="Family">Family</option>
+              <option value="Professor">Professor / College</option>
+              <option value="Colleague">Colleague / Work</option>
+              <option value="Emergency">Emergency Contact</option>
+              <option value="Delivery">Delivery / Courier</option>
+              <option value="Spam">Spam / Telemarketer</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-mono text-slate-300 mb-1">Priority Policy</label>
+            <select id="contact-priority" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:border-brand-500">
+              <option value="VIP">VIP (Direct Pass)</option>
+              <option value="Normal">Normal (Screen)</option>
+              <option value="Block">Block (Drop call)</option>
+            </select>
+          </div>
+        </div>
+        <div class="flex items-center gap-2 pt-1">
+          <input type="checkbox" id="contact-bypass" checked class="w-4 h-4 rounded text-brand-500 bg-slate-950 border-slate-700">
+          <label for="contact-bypass" class="text-xs text-slate-300">Enable VIP Bypass (Ring normally even if In Class/Coding)</label>
+        </div>
+        <div>
+          <label class="block text-xs font-mono text-slate-300 mb-1">Custom SMS Template (Optional)</label>
+          <textarea id="contact-sms-template" rows="2" placeholder="Custom text to reply to this contact..." class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:border-brand-500"></textarea>
+        </div>
+      </div>
+      <div class="flex items-center justify-end gap-2 pt-2">
+        <button onclick="closeModal('modal-contact')" class="px-4 py-2 rounded-xl text-xs text-slate-300 hover:bg-slate-800">Cancel</button>
+        <button onclick="saveContact()" class="px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold">Save Contact</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: ADD TIMETABLE RULE -->
+  <div id="modal-schedule" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-5 space-y-4 shadow-2xl">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+        <h3 class="text-sm font-bold text-white flex items-center gap-2">
+          <i data-lucide="calendar" class="w-4 h-4 text-brand-400"></i> Add Timetable Rule
+        </h3>
+        <button onclick="closeModal('modal-schedule')" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-4 h-4"></i></button>
+      </div>
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs font-mono text-slate-300 mb-1">Title</label>
+          <input type="text" id="schedule-title" placeholder="e.g. Distributed Systems Lab" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:border-brand-500">
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-mono text-slate-300 mb-1">Start Time (24h)</label>
+            <input type="text" id="schedule-start" placeholder="09:00" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-mono focus:border-brand-500">
+          </div>
+          <div>
+            <label class="block text-xs font-mono text-slate-300 mb-1">End Time (24h)</label>
+            <input type="text" id="schedule-end" placeholder="12:00" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-mono focus:border-brand-500">
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-mono text-slate-300 mb-1">Assigned Status</label>
+          <select id="schedule-status" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:border-brand-500">
+            <option value="IN_CLASS">In Class</option>
+            <option value="CODING_FOCUS">Coding Focus</option>
+            <option value="BUSY">Busy</option>
+            <option value="SLEEPING">Sleeping</option>
+            <option value="DND">DND</option>
+          </select>
+        </div>
+      </div>
+      <div class="flex items-center justify-end gap-2 pt-2">
+        <button onclick="closeModal('modal-schedule')" class="px-4 py-2 rounded-xl text-xs text-slate-300 hover:bg-slate-800">Cancel</button>
+        <button onclick="saveSchedule()" class="px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold">Save Rule</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: INTERACTIVE TEST CALL SIMULATOR -->
+  <div id="modal-simulation" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-5 space-y-4 shadow-2xl">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+        <div>
+          <h3 class="text-sm font-bold text-white flex items-center gap-2">
+            <i data-lucide="play-circle" class="w-4 h-4 text-brand-400"></i> Interactive Test Call Simulator
+          </h3>
+          <p class="text-xs text-slate-400">Trigger an incoming call to test LLM decisions, SMS auto-replies, and voice screening.</p>
+        </div>
+        <button onclick="closeModal('modal-simulation')" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-4 h-4"></i></button>
+      </div>
+
+      <!-- Quick Preset buttons -->
+      <div>
+        <label class="block text-xs font-mono text-slate-400 mb-1.5">Quick Caller Presets:</label>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          <button onclick="fillSimPreset('Mom', '+919876543210', 'Family')" class="p-2 rounded-lg bg-slate-950 border border-slate-800 hover:border-brand-500 text-left text-xs text-slate-300 transition-all">
+            <span class="block font-semibold text-white">Mom</span>
+            <span class="text-[10px] text-brand-400">VIP Family</span>
+          </button>
+          <button onclick="fillSimPreset('Dr. R. Sharma', '+919811223344', 'Professor')" class="p-2 rounded-lg bg-slate-950 border border-slate-800 hover:border-brand-500 text-left text-xs text-slate-300 transition-all">
+            <span class="block font-semibold text-white">Dr. Sharma</span>
+            <span class="text-[10px] text-amber-400">Professor</span>
+          </button>
+          <button onclick="fillSimPreset('Amazon Delivery', '+919700112233', 'Delivery')" class="p-2 rounded-lg bg-slate-950 border border-slate-800 hover:border-brand-500 text-left text-xs text-slate-300 transition-all">
+            <span class="block font-semibold text-white">Delivery</span>
+            <span class="text-[10px] text-cyan-400">Package</span>
+          </button>
+          <button onclick="fillSimPreset('Spam Telemarketer', '+911409998877', 'Spam')" class="p-2 rounded-lg bg-slate-950 border border-slate-800 hover:border-brand-500 text-left text-xs text-slate-300 transition-all">
+            <span class="block font-semibold text-white">Spam Robocall</span>
+            <span class="text-[10px] text-rose-400">Credit Card</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="space-y-3 pt-2">
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-mono text-slate-300 mb-1">Caller Name</label>
+            <input type="text" id="sim-caller-name" value="Mom" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:border-brand-500">
+          </div>
+          <div>
+            <label class="block text-xs font-mono text-slate-300 mb-1">Phone Number</label>
+            <input type="text" id="sim-caller-number" value="+919876543210" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-mono focus:border-brand-500">
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-mono text-slate-300 mb-1">Caller Category</label>
+          <select id="sim-caller-category" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:border-brand-500">
+            <option value="Family">Family (VIP)</option>
+            <option value="Professor">Professor / College</option>
+            <option value="Colleague">Colleague / Work</option>
+            <option value="Delivery">Delivery / Courier</option>
+            <option value="Spam">Spam / Telemarketer</option>
+            <option value="Unknown">Unknown Caller</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-800">
+        <button onclick="closeModal('modal-simulation')" class="px-4 py-2 rounded-xl text-xs text-slate-300 hover:bg-slate-800">Close</button>
+        <button onclick="triggerSimulatedCall()" class="px-5 py-2 rounded-xl bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-500 hover:to-indigo-500 text-white text-xs font-bold flex items-center gap-1.5 shadow-lg shadow-brand-500/25">
+          <i data-lucide="phone-outgoing" class="w-4 h-4"></i> Trigger Incoming Call
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- JAVASCRIPT LOGIC -->
+  <script>
+    // Global State
+    let currentMode = "smart_reject";
+    let activeCallId = null;
+    let ws = null;
+
+    document.addEventListener("DOMContentLoaded", () => {
+      lucide.createIcons();
+      initWebSocket();
+      fetchStatus();
+      fetchCallLogs();
+      fetchContacts();
+      fetchSchedules();
+    });
+
+    // ----------------- WebSocket Connection -----------------
+    function initWebSocket() {
+      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+      const wsUrl = `${protocol}//${window.location.host}/ws`;
+      ws = new WebSocket(wsUrl);
+
+      ws.onopen = () => {
+        console.log("WebSocket connected");
+        document.getElementById("adb-indicator").className = "w-2 h-2 rounded-full bg-emerald-400";
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const msg = JSON.parse(event.data);
+          handleWebSocketEvent(msg.event, msg.data);
+        } catch (e) {
+          console.error("Error parsing WS message:", e);
+        }
+      };
+
+      ws.onclose = () => {
+        console.log("WebSocket disconnected, retrying in 3s...");
+        document.getElementById("adb-indicator").className = "w-2 h-2 rounded-full bg-rose-500";
+        setTimeout(initWebSocket, 3000);
+      };
+    }
+
+    function handleWebSocketEvent(event, data) {
+      console.log("[WS Event]", event, data);
+      if (event === "INITIAL_STATE") {
+        updateContextUI(data.context);
+        updateModeUI(data.mode);
+        updateADBStatus(data.adb_connected, data.devices, data.simulation_mode);
+        if (data.active_call && data.active_call.is_active) {
+          showIncomingCallBanner(data.active_call.name, data.active_call.number, "Incoming Call", "RINGING");
+        }
+      } else if (event === "INCOMING_CALL") {
+        showIncomingCallBanner(data.caller_name, data.caller_number, data.category, data.recommended_action);
+        fetchCallLogs();
+      } else if (event === "CALL_ACTION") {
+        document.getElementById("live-call-action-badge").innerText = data.action;
+        fetchCallLogs();
+      } else if (event === "VOICE_EVENT") {
+        handleVoiceEvent(data);
+      } else if (event === "CALL_ENDED") {
+        hideIncomingCallBanner();
+        fetchCallLogs();
+      } else if (event === "CONTEXT_UPDATED") {
+        updateContextUI(data);
+      } else if (event === "MODE_UPDATED") {
+        updateModeUI(data.mode);
+      }
+    }
+
+    function handleVoiceEvent(data) {
+      document.getElementById("live-screening-box").classList.remove("hidden");
+      const container = document.getElementById("live-transcript-stream");
+      if (data.role && data.message) {
+        const row = document.createElement("div");
+        row.className = data.role === "assistant" 
+          ? "p-2 rounded bg-violet-950/40 text-violet-200 border-l-2 border-violet-500" 
+          : "p-2 rounded bg-slate-900 text-slate-200 border-l-2 border-brand-500";
+        row.innerHTML = `<span class="font-bold uppercase text-[10px] text-slate-400 block">${data.role}:</span>${data.message}`;
+        container.appendChild(row);
+        container.scrollTop = container.scrollHeight;
+      }
+    }
+
+    // ----------------- UI Helpers -----------------
+    function showIncomingCallBanner(name, number, category, action) {
+      const banner = document.getElementById("live-call-container");
+      document.getElementById("live-call-name").innerText = name || "Unknown Caller";
+      document.getElementById("live-call-number").innerText = number || "";
+      document.getElementById("live-call-category").innerText = category || "Unknown";
+      document.getElementById("live-call-action-badge").innerText = action || "Screening";
+      banner.classList.remove("hidden");
+      lucide.createIcons();
+    }
+
+    function hideIncomingCallBanner() {
+      document.getElementById("live-call-container").classList.add("hidden");
+      document.getElementById("live-screening-box").classList.add("hidden");
+      document.getElementById("live-transcript-stream").innerHTML = "";
+    }
+
+    function updateModeUI(mode) {
+      currentMode = mode;
+      ["smart_reject", "voice_screen", "vip_bypass"].forEach(m => {
+        const btn = document.getElementById(`btn-mode-${m}`);
+        if (m === mode) {
+          btn.className = "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-brand-500/20 text-brand-300 border border-brand-500/30 transition-all";
+        } else {
+          btn.className = "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all text-slate-400 hover:text-white";
+        }
+      });
+    }
+
+    function updateContextUI(ctx) {
+      const title = document.getElementById("ctx-status-title");
+      const note = document.getElementById("ctx-status-note");
+      const dot = document.getElementById("ctx-status-dot");
+      const resumeBtn = document.getElementById("btn-resume-timetable");
+
+      title.innerText = ctx.status;
+      note.innerText = ctx.note ? `• ${ctx.note}` : "";
+
+      if (ctx.is_manual) {
+        resumeBtn.classList.remove("hidden");
+      } else {
+        resumeBtn.classList.add("hidden");
+      }
+
+      // Highlight active button
+      ["AVAILABLE", "IN_CLASS", "CODING_FOCUS", "SLEEPING", "DND", "CUSTOM"].forEach(st => {
+        const btn = document.getElementById(`status-btn-${st}`);
+        if (btn) {
+          if (ctx.status === st) {
+            btn.classList.add("border-brand-500", "bg-slate-900", "ring-1", "ring-brand-500/50");
+          } else {
+            btn.classList.remove("border-brand-500", "ring-1", "ring-brand-500/50");
+          }
+        }
+      });
+    }
+
+    function updateADBStatus(connected, devices, simMode) {
+      const pill = document.getElementById("adb-status-pill");
+      const text = document.getElementById("adb-text");
+      const dot = document.getElementById("adb-indicator");
+      const simToggle = document.getElementById("setting-sim-toggle");
+
+      if (simToggle) simToggle.checked = simMode;
+
+      if (simMode) {
+        dot.className = "w-2 h-2 rounded-full bg-violet-400";
+        text.innerText = "Virtual Simulator Active";
+      } else if (connected) {
+        dot.className = "w-2 h-2 rounded-full bg-emerald-400";
+        const devName = devices && devices[0] ? devices[0].model : "Android Device";
+        text.innerText = `ADB: ${devName}`;
+      } else {
+        dot.className = "w-2 h-2 rounded-full bg-amber-400";
+        text.innerText = "ADB Disconnected (Auto Fallback)";
+      }
+    }
+
+    // ----------------- Tab Navigation -----------------
+    function switchTab(tabId) {
+      ["logs", "vip", "schedules", "settings"].forEach(t => {
+        const content = document.getElementById(`tab-content-${t}`);
+        const btn = document.getElementById(`tab-btn-${t}`);
+        if (t === tabId) {
+          content.classList.remove("hidden");
+          btn.className = "flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold text-brand-400 bg-slate-900 border border-slate-700/60 shadow-sm transition-all";
+        } else {
+          content.classList.add("hidden");
+          btn.className = "flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-900 transition-all";
+        }
+      });
+      lucide.createIcons();
+    }
+
+    // ----------------- REST API Calls -----------------
+    async function fetchStatus() {
+      try {
+        const res = await fetch("/api/status");
+        const data = await res.json();
+        updateContextUI(data.context);
+        updateModeUI(data.active_mode);
+        updateADBStatus(data.adb.connected, data.adb.devices, data.adb.simulation_mode);
+      } catch (e) {
+        console.error("Error fetching status:", e);
+      }
+    }
+
+    async function setMode(mode) {
+      try {
+        await fetch("/api/mode", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ mode })
+        });
+        updateModeUI(mode);
+      } catch (e) {
+        console.error("Error setting mode:", e);
+      }
+    }
+
+    async function setStatus(status, note = "", until = "") {
+      try {
+        await fetch("/api/context", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status, note, until })
+        });
+        fetchStatus();
+      } catch (e) {
+        console.error("Error updating context:", e);
+      }
+    }
+
+    async function clearManualContext() {
+      try {
+        await fetch("/api/context/clear", { method: "POST" });
+        fetchStatus();
+      } catch (e) {
+        console.error("Error clearing context:", e);
+      }
+    }
+
+    // ----------------- Call Logs -----------------
+    async function fetchCallLogs() {
+      const urgency = document.getElementById("urgency-filter").value;
+      const url = urgency ? `/api/calls?urgency=${urgency}` : "/api/calls";
+      try {
+        const res = await fetch(url);
+        const calls = await res.json();
+        renderCallLogs(calls);
+      } catch (e) {
+        console.error("Error fetching call logs:", e);
+      }
+    }
+
+    function renderCallLogs(calls) {
+      const container = document.getElementById("call-logs-container");
+      if (!calls || calls.length === 0) {
+        container.innerHTML = `
+          <div class="text-center py-12 glass-card rounded-2xl border border-dashed border-slate-800">
+            <i data-lucide="phone-missed" class="w-8 h-8 text-slate-500 mx-auto mb-2"></i>
+            <p class="text-xs text-slate-400">No calls recorded yet. Use the <strong>Test Call</strong> button above to simulate incoming calls.</p>
+          </div>
+        `;
+        lucide.createIcons();
+        return;
+      }
+
+      container.innerHTML = calls.map(c => {
+        const urgencyColor = c.urgency_score >= 8 ? "bg-rose-500/20 text-rose-300 border-rose-500/40" 
+          : c.urgency_score >= 6 ? "bg-amber-500/20 text-amber-300 border-amber-500/40" 
+          : "bg-slate-800 text-slate-300 border-slate-700";
+
+        const actionBadge = c.action_taken === "VIP_BYPASS" ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40"
+          : c.action_taken === "VOICE_SCREEN" ? "bg-violet-500/20 text-violet-300 border-violet-500/40"
+          : c.action_taken === "BLOCK_SPAM" ? "bg-rose-500/20 text-rose-300 border-rose-500/40"
+          : "bg-brand-500/20 text-brand-300 border-brand-500/40";
+
+        const timeStr = new Date(c.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+        return `
+          <div class="glass-card rounded-2xl p-4 transition-all hover:border-slate-700">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-800/80">
+              <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center font-bold text-xs text-brand-400">
+                  ${c.caller_name.charAt(0)}
+                </div>
+                <div>
+                  <div class="flex items-center gap-2">
+                    <h4 class="font-bold text-sm text-white">${c.caller_name}</h4>
+                    <span class="text-[10px] font-mono px-2 py-0.5 rounded border ${actionBadge}">${c.action_taken}</span>
+                    <span class="text-[10px] font-mono px-2 py-0.5 rounded border ${urgencyColor}">Urgency: ${c.urgency_score}/10</span>
+                  </div>
+                  <p class="text-xs font-mono text-slate-400">${c.caller_number} • Category: ${c.category}</p>
+                </div>
+              </div>
+              <div class="text-right text-[11px] font-mono text-slate-400">
+                ${timeStr}
+              </div>
+            </div>
+
+            <!-- Summary & SMS message -->
+            <div class="mt-3 space-y-2 text-xs">
+              ${c.ai_summary ? `
+                <div class="flex items-start gap-2 text-slate-300 bg-slate-950/60 p-2.5 rounded-xl border border-slate-800">
+                  <i data-lucide="sparkles" class="w-4 h-4 text-brand-400 shrink-0 mt-0.5"></i>
+                  <div><strong class="text-brand-300">AI Summary:</strong> ${c.ai_summary}</div>
+                </div>
+              ` : ''}
+
+              ${c.sms_sent && c.sms_text ? `
+                <div class="flex items-start gap-2 text-slate-300 bg-slate-900/40 p-2.5 rounded-xl border border-slate-800/80">
+                  <i data-lucide="message-square" class="w-4 h-4 text-emerald-400 shrink-0 mt-0.5"></i>
+                  <div><strong class="text-emerald-300">Auto-SMS Sent:</strong> "${c.sms_text}"</div>
+                </div>
+              ` : ''}
+
+              <!-- Transcript Drawer (if voice screened) -->
+              ${c.transcript && c.transcript.length > 0 ? `
+                <details class="text-[11px] text-slate-400 bg-slate-950/40 p-2 rounded-xl border border-slate-800/60">
+                  <summary class="cursor-pointer font-mono text-violet-400 font-semibold hover:text-violet-300">View Voice Screening Transcript (${c.transcript.length} turns)</summary>
+                  <div class="space-y-1.5 mt-2 pt-2 border-t border-slate-800">
+                    ${c.transcript.map(t => `
+                      <p><strong class="uppercase text-slate-300">${t.role}:</strong> ${t.message}</p>
+                    `).join('')}
+                  </div>
+                </details>
+              ` : ''}
+            </div>
+          </div>
+        `;
+      }).join('');
+      lucide.createIcons();
+    }
+
+    async function clearAllLogs() {
+      if (!confirm("Are you sure you want to clear all call logs?")) return;
+      try {
+        await fetch("/api/calls", { method: "DELETE" });
+        fetchCallLogs();
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    // ----------------- VIP Contacts -----------------
+    async function fetchContacts() {
+      try {
+        const res = await fetch("/api/contacts");
+        const contacts = await res.json();
+        renderContacts(contacts);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    function renderContacts(contacts) {
+      const container = document.getElementById("contacts-container");
+      container.innerHTML = contacts.map(c => `
+        <div class="glass-card rounded-2xl p-4 space-y-3 relative">
+          <div class="flex items-start justify-between">
+            <div>
+              <div class="flex items-center gap-2">
+                <h4 class="font-bold text-sm text-white">${c.name}</h4>
+                <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-brand-500/20 text-brand-300 border border-brand-500/30">${c.category}</span>
+              </div>
+              <p class="text-xs font-mono text-slate-400 mt-0.5">${c.phone_number}</p>
+            </div>
+            <button onclick="deleteContact('${c.id}')" class="text-slate-500 hover:text-rose-400"><i data-lucide="trash" class="w-4 h-4"></i></button>
+          </div>
+          <div class="text-xs text-slate-300 space-y-1">
+            <p><strong>Policy:</strong> ${c.priority} • ${c.bypass_enabled ? '✅ VIP Bypass Enabled' : '⏸️ Normal Screening'}</p>
+            ${c.notes ? `<p class="text-slate-400 italic">${c.notes}</p>` : ''}
+            ${c.custom_sms_template ? `<p class="text-[11px] bg-slate-900 p-2 rounded border border-slate-800 text-slate-400">"${c.custom_sms_template}"</p>` : ''}
+          </div>
+        </div>
+      `).join('');
+      lucide.createIcons();
+    }
+
+    async function saveContact() {
+      const name = document.getElementById("contact-name").value;
+      const phone_number = document.getElementById("contact-phone").value;
+      const category = document.getElementById("contact-category").value;
+      const priority = document.getElementById("contact-priority").value;
+      const bypass_enabled = document.getElementById("contact-bypass").checked;
+      const custom_sms_template = document.getElementById("contact-sms-template").value;
+
+      if (!name || !phone_number) {
+        alert("Please enter Name and Phone Number");
+        return;
+      }
+
+      await fetch("/api/contacts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, phone_number, category, priority, bypass_enabled, custom_sms_template })
+      });
+      closeModal("modal-contact");
+      fetchContacts();
+    }
+
+    async function deleteContact(id) {
+      if (!confirm("Delete contact?")) return;
+      await fetch(`/api/contacts/${id}`, { method: "DELETE" });
+      fetchContacts();
+    }
+
+    // ----------------- Schedules -----------------
+    async function fetchSchedules() {
+      try {
+        const res = await fetch("/api/schedules");
+        const schedules = await res.json();
+        renderSchedules(schedules);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    function renderSchedules(schedules) {
+      const container = document.getElementById("schedules-container");
+      container.innerHTML = schedules.map(s => `
+        <div class="glass-card rounded-2xl p-4 flex items-center justify-between">
+          <div>
+            <div class="flex items-center gap-2">
+              <h4 class="font-bold text-sm text-white">${s.title}</h4>
+              <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">${s.status}</span>
+            </div>
+            <p class="text-xs font-mono text-slate-400 mt-0.5">${s.start_time} - ${s.end_time} • ${s.note}</p>
+          </div>
+          <button onclick="deleteSchedule('${s.id}')" class="text-slate-500 hover:text-rose-400"><i data-lucide="trash" class="w-4 h-4"></i></button>
+        </div>
+      `).join('');
+      lucide.createIcons();
+    }
+
+    async function saveSchedule() {
+      const title = document.getElementById("schedule-title").value;
+      const start_time = document.getElementById("schedule-start").value;
+      const end_time = document.getElementById("schedule-end").value;
+      const status = document.getElementById("schedule-status").value;
+
+      if (!title || !start_time || !end_time) return;
+
+      await fetch("/api/schedules", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title, start_time, end_time, status, is_active: true })
+      });
+      closeModal("modal-schedule");
+      fetchSchedules();
+    }
+
+    async function deleteSchedule(id) {
+      await fetch(`/api/schedules/${id}`, { method: "DELETE" });
+      fetchSchedules();
+    }
+
+    // ----------------- Simulation & Test Call -----------------
+    function fillSimPreset(name, number, category) {
+      document.getElementById("sim-caller-name").value = name;
+      document.getElementById("sim-caller-number").value = number;
+      document.getElementById("sim-caller-category").value = category;
+    }
+
+    async function triggerSimulatedCall() {
+      const caller_name = document.getElementById("sim-caller-name").value;
+      const caller_number = document.getElementById("sim-caller-number").value;
+      const category = document.getElementById("sim-caller-category").value;
+
+      closeModal("modal-simulation");
+      try {
+        await fetch("/api/calls/simulate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ caller_name, caller_number, category })
+        });
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    async function sendSimulatedSpeech() {
+      const input = document.getElementById("simulated-speech-input");
+      const speech = input.value.trim();
+      if (!speech) return;
+      input.value = "";
+      try {
+        await fetch("/api/calls/simulate-turn", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ caller_speech: speech })
+        });
+      } catch (e) {
+        console.error("Error sending turn:", e);
+      }
+    }
+
+    async function terminateActiveCall() {
+      try {
+        await fetch("/api/calls/end-active", { method: "POST" });
+        hideIncomingCallBanner();
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    // ----------------- Device & TTS Settings -----------------
+    async function connectWirelessADB() {
+      const ip = document.getElementById("setting-adb-ip").value;
+      const port = parseInt(document.getElementById("setting-adb-port").value || 5555);
+      const res = await fetch("/api/adb/connect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ip, port })
+      });
+      const data = await res.json();
+      alert(data.message);
+      fetchStatus();
+    }
+
+    async function toggleSimulationMode(enable) {
+      await fetch(`/api/adb/simulation?enable=${enable}`, { method: "POST" });
+      fetchStatus();
+    }
+
+    async function previewVoiceTTS() {
+      const voice = document.getElementById("setting-tts-voice").value;
+      const text = document.getElementById("setting-tts-test-phrase").value;
+      const res = await fetch("/api/voice/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, voice })
+      });
+      const data = await res.json();
+      if (data.audio_url) {
+        const player = document.getElementById("tts-preview-player");
+        player.src = data.audio_url;
+        player.classList.remove("hidden");
+        player.play();
+      }
+    }
+
+    // ----------------- Modals -----------------
+    function promptStatusModal(statusKey) {
+      document.getElementById("modal-context-status-key").value = statusKey;
+      document.getElementById("modal-context-title").innerHTML = `<i data-lucide="edit-3" class="w-4 h-4 text-brand-400"></i> Set Note for ${statusKey}`;
+      document.getElementById("modal-context").classList.remove("hidden");
+      lucide.createIcons();
+    }
+
+    function applyContextModal() {
+      const key = document.getElementById("modal-context-status-key").value;
+      const note = document.getElementById("modal-context-note").value;
+      const until = document.getElementById("modal-context-until").value;
+      setStatus(key, note, until);
+      closeModal("modal-context");
+    }
+
+    function openSimulationModal() { document.getElementById("modal-simulation").classList.remove("hidden"); lucide.createIcons(); }
+    function openContactModal() { document.getElementById("modal-contact").classList.remove("hidden"); lucide.createIcons(); }
+    function openScheduleModal() { document.getElementById("modal-schedule").classList.remove("hidden"); lucide.createIcons(); }
+    function closeModal(id) { document.getElementById(id).classList.add("hidden"); }
+  </script>
+</body>
+</html>
